@@ -174,22 +174,22 @@ def main():
     while run:
         # Reset stuff
         window.fill((0, 0, 0))
-        # # Compute new velocities
-        # # 1. Reshape old velocity + position vectors
-        # v0 = velocities.reshape(-1, 1)
-        # p = positions.reshape(-1, 1)
-        # # 2. Compute update matrix
-        # CTC = C.T @ C
-        # M = -h * stiff * np.linalg.inv(np.eye(2 * len(positions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
-        # # 3. Compute new velocities
-        # v = v0 + (M @ (p + (h * v0)))
-        # v = v.reshape(len(positions), 2)
-        # # 4. Update velocities of only un-pinned vertices
-        # for row, vel in enumerate(v):
-        #     if row not in pinned:
-        #         velocities[row] = vel
-        # # 5. Update positions based on velocities
-        # positions += h * velocities
+        # Compute new velocities
+        # 1. Reshape old velocity + position vectors
+        v0 = velocities.reshape(-1, 1)
+        p = positions.reshape(-1, 1)
+        # 2. Compute update matrix
+        CTC = C.T @ C
+        M = -h * stiff * np.linalg.inv(np.eye(2 * len(positions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+        # 3. Compute new velocities
+        v = v0 + (M @ (p + (h * v0)))
+        v = v.reshape(len(positions), 2)
+        # 4. Update velocities of only un-pinned vertices
+        for row, vel in enumerate(v):
+            if row not in pinned:
+                velocities[row] = vel
+        # 5. Update positions based on velocities
+        positions += h * velocities
 
 
 

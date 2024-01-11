@@ -39,8 +39,12 @@ dt = 0.01    # i.e., 1 frame corresponds to +0.01 in parameter space = 0.01 * FP
 keys = [0,      # Keyframe 0. Dancing messy network
         1.,     # Keyframe 1. Picking it apart.
         4.,     # Keyframe 2. Pick a triangle.
-        7.,     # Keyframe 3. Tuttes for triangle boundary.
-        14.]
+        7.,     # Keyframe 3. Tuttes for triangle boundary. TODO: MAKE LONGER IN ACTUAL RENDER
+        8.,     # Keyframe 4. Pick the mouth hole.
+        10.,    # Keyframe 5. Tuttes for mouth hole boundary  TODO MAKE LONGER IN ACTUAL RENDER
+        11.,    # Keyframe 6. Pick the true boundary hole.
+        13.,    # Keyframe 7. Tuttes for true boundary hole  TODO MAKE LONGER IN ACTUAL RENDER
+        17.]
 
 
 # Helper Functions
@@ -104,8 +108,11 @@ def ease_inout_inverse(t_):
 
 
 # Mesh information (input)
-filename = 'lowpolyface7.obj'  # use face 7
-pinned = [67, 482, 207]  #[128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
+filename = 'THE_ACTUAL_FACE_TO_USE.obj'  # use "THE ACTUAL FACE TO USE"
+
+# FOR "THE ACTUAL FACE TO USE"
+# RIGHT EYE [112, 367, 125, 376, 119, 364, 123, 365, 114, 369, 122, 363, 117, 375, 126, 370]
+# RANDOM TRIANGLE [67, 482, 207]
 
 # FOR FACE 7
 # Random loop [21, 151, 48, 237, 64, 270, 101, 262, 104, 258, 478, 177, 464, 228, 472, 252, 608, 657, 638, 648, 636, 646, 632, 643, 631, 675, 615, 41, 163, 42, 205]
@@ -121,9 +128,6 @@ pinned = [67, 482, 207]  #[128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133
 #[163, 525, 177, 524, 178, 519, 184, 516, 169, 532, 168, 529, 172, 514, 182, 521, 181, 517, 180, 522, 179, 515, 176, 526, 175, 523, 171, 530, 170, 531, 167, 533, 166, 528, 173, 527, 174, 520, 183, 518, 165, 534, 164, 535]
 #[163, 177, 178, 184, 169, 168, 172, 182, 181, 180, 179, 176, 175, 171, 170, 167, 166, 173, 174, 183, 165, 164]
  #[168, 166, 180, 171, 172, 170, 178, 164, 169, 185, 176, 182, 165, 179, 174, 175, 173, 181, 167, 183, 177, 184]
-stiff = 5000
-h = 0.01 #0.02
-# drag = 0.00009
 
 # Load OBJ file + fill edges list
 positions = []
@@ -171,7 +175,8 @@ colors = {
     'blue': np.array([30, 5, 252]),
     'fullred': np.array([255, 0, 0]),
     'fullblue': np.array([0, 0, 255]),
-    'START': np.array([255, 255, 255])
+    'START': np.array([255, 255, 255]),
+    'orange': np.array([255, 165, 0])
 }
 
 
@@ -233,6 +238,12 @@ def main():
 
     # For frame 2 — Transparency channel for fading out triangle
     transparent_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+    # For frame 4 — Indices for the mouth hole
+    hole_verts = [629, 641, 630, 645, 633, 644, 654, 655, 653, 637, 647, 639, 649, 640, 651, 634, 650, 635, 652, 638, 648, 636, 646, 632, 643, 631, 642] #[112, 367, 125, 376, 119, 364, 123, 365, 114, 369, 122, 363, 117, 375, 126, 370]
+
+    # For frame 5 — Indices for the true boundary hole
+    boundary_hole_verts = [128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
 
     # Game loop
     count = 0
@@ -441,8 +452,210 @@ def main():
             basepositions += h * velocities
 
             # Apply zoom, and update positions themselves
-            max_zoom = 1.0  # 6.0
+            max_zoom = 3.0
             positions = np.array([basepos * lerp(u, 1.0, max_zoom) for basepos in basepositions])
+
+        # Keyframe 4 — Pick mouth hole
+        elif frame == 4:
+            # Base positions will be the positions from the final instant of the previous frame
+            if firstframe:
+                basepositions = np.array(copy.copy(positions))
+
+            tau, seg = squash(u, [0.0,   # Seg 0: Highlight hole
+                                  0.5,   # Seg 1: Expand it out (may need to zoom out to fit everything)
+                                  1.0])
+
+            # Highlight the hole
+            if seg == 0:
+                tau = ease_inout(tau)
+                # Iterate through the hole's boundary verts, drawing in the edges one by one
+                sigma, edge_num = squash2(tau, n_intervals=len(hole_verts)-1)  # edge_num is the name of the SECTION, i.e. it gives the # of the edge being drawn
+                for i in range(edge_num+1):
+                    startpos = positions[hole_verts[i]]
+                    endpos = positions[hole_verts[(i+1) % len(hole_verts)]]
+                    # LERP-in the current edge
+                    if i == edge_num:
+                        midpos = lerp(sigma, startpos, endpos)
+                        pygame.draw.line(window, colors['white'], A(startpos), A(midpos), width=8)
+
+                    # Just straight draw in all the previously drawn ones
+                    pygame.draw.line(window, colors['white'], A(startpos), A(endpos), width=8)
+
+            # Expand it out (may need to zoom out to fit everything)
+            if seg == 1:
+                tau = ease_inout(tau)
+                # LERP hole to boundary
+                angle_offset = np.radians(-120.)
+                for i, vert in enumerate(hole_verts):
+                    angle = (np.pi * 2.0 * (i / len(hole_verts))) + angle_offset
+                    destpos = np.array([np.cos(angle), np.sin(angle)]) * min(width, height) / 2 * 0.9
+                    destpos -= np.array([0., 0.])
+                    positions[hole_verts[i]] = lerp(tau, basepositions[hole_verts[i]], destpos)
+
+                # LERP rest of the nodes to be a bit smaller (to fit inside the circle)
+                factor = 0.25
+                for idx in range(len(positions)):
+                    if idx not in hole_verts:
+                        positions[idx] = basepositions[idx] * lerp(tau, 1.0, factor)
+
+                # Draw triangle, fade out white highlight
+                pygame.draw.lines(transparent_surface, np.array([*colors['white'], 255. * (1 - tau)]), True,
+                                  A_many([positions[hole_idx] for hole_idx in hole_verts]), width=8)
+
+                window.blit(transparent_surface, (0, 0))
+
+        # Keyframe 5 — Tuttes for mouth hole boundary
+        elif frame == 5:
+            # We'll use BASE POSITIONS as the main simulation array. That way "positions" can be
+            # used for zooming in / out. Also let's make those basepositions into np array.
+            # Reset velocities to 0 too.
+            if firstframe:
+                basepositions = np.array(copy.copy(positions))
+                velocities = np.zeros((len(positions), 2))
+
+            # A little pause
+            u = slash(u, new_start=0.1)
+            u = ease_inout(u)
+
+            # Initialize 2|E| x 2|V| sized connections matrix
+            C = np.zeros((2 * len(edges), 2 * len(basepositions)))
+            for row, e in enumerate(edges):
+                i1, i2 = e
+                # x-dimension constraint
+                C[2 * row][2 * i1] = 1
+                C[2 * row][2 * i2] = -1
+                # y-dimension constraint
+                C[(2 * row) + 1][(2 * i1) + 1] = 1
+                C[(2 * row) + 1][(2 * i2) + 1] = -1
+
+            # Spring + simulation parameters
+            stiff = 500  # 5000
+            h = 0.01  # 0.01
+            pinned = hole_verts
+
+            # SIMULATE
+            # Compute new velocities
+            # 1. Reshape old velocity + position vectors
+            v0 = velocities.reshape(-1, 1)
+            p = basepositions.reshape(-1, 1)
+            # 2. Compute update matrix
+            CTC = C.T @ C
+            M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+            # 3. Compute new velocities
+            v = v0 + (M @ (p + (h * v0)))
+            v = v.reshape(len(basepositions), 2)
+            # 4. Update velocities of only un-pinned vertices
+            for row, vel in enumerate(v):
+                if row not in pinned:
+                    velocities[row] = vel
+            # 5. Update basepositions based on velocities
+            basepositions += h * velocities
+
+            # 6. Update positions themselves
+            positions = np.array([basepos for basepos in basepositions])
+
+        # Keyframe 6 — Pick the true boundary hole.
+        elif frame == 6:
+            # Base positions will be the positions from the final instant of the previous frame
+            if firstframe:
+                basepositions = np.array(copy.copy(positions))
+
+            tau, seg = squash(u, [0.0,  # Seg 0: Highlight hole
+                                  0.5,  # Seg 1: Expand it out (may need to zoom out to fit everything)
+                                  1.0])
+
+            # Highlight the hole
+            if seg == 0:
+                tau = ease_inout(tau)
+                # Iterate through the hole's boundary verts, drawing in the edges one by one
+                sigma, edge_num = squash2(tau, n_intervals=len(boundary_hole_verts) - 1)  # edge_num is the name of the SECTION, i.e. it gives the # of the edge being drawn
+                for i in range(edge_num + 1):
+                    startpos = positions[boundary_hole_verts[i]]
+                    endpos = positions[boundary_hole_verts[(i + 1) % len(boundary_hole_verts)]]
+                    # LERP-in the current edge
+                    if i == edge_num:
+                        midpos = lerp(sigma, startpos, endpos)
+                        pygame.draw.line(window, colors['white'], A(startpos), A(midpos), width=8)
+
+                    # Just straight draw in all the previously drawn ones
+                    pygame.draw.line(window, colors['white'], A(startpos), A(endpos), width=8)
+
+            # Expand it out (may need to zoom out to fit everything)
+            if seg == 1:
+                tau = ease_inout(tau)
+                # LERP hole to boundary
+                angle_offset = np.radians(-120.)
+                for i, vert in enumerate(boundary_hole_verts):
+                    angle = (np.pi * 2.0 * (i / len(boundary_hole_verts))) + angle_offset
+                    destpos = np.array([np.cos(angle), np.sin(angle)]) * min(width, height) / 2 * 0.9
+                    destpos -= np.array([0., 0.])
+                    positions[boundary_hole_verts[i]] = lerp(tau, basepositions[boundary_hole_verts[i]], destpos)
+
+                # LERP rest of the nodes to be a bit smaller (to fit inside the circle)
+                factor = 0.7
+                for idx in range(len(positions)):
+                    if idx not in boundary_hole_verts:
+                        positions[idx] = basepositions[idx] * lerp(tau, 1.0, factor)
+
+                # Draw triangle, fade out white highlight
+                pygame.draw.lines(transparent_surface, np.array([*colors['white'], 255. * (1 - tau)]), True,
+                                  A_many([positions[hole_idx] for hole_idx in boundary_hole_verts]), width=8)
+
+                window.blit(transparent_surface, (0, 0))
+
+        # Keyframe 7 — Tuttes for true hole boundary
+        elif frame == 7:
+            # We'll use BASE POSITIONS as the main simulation array. That way "positions" can be
+            # used for zooming in / out. Also let's make those basepositions into np array.
+            # Reset velocities to 0 too.
+            if firstframe:
+                basepositions = np.array(copy.copy(positions))
+                velocities = np.zeros((len(positions), 2))
+
+            # A little pause
+            u = slash(u, new_start=0.1)
+            u = ease_inout(u)
+
+            # Initialize 2|E| x 2|V| sized connections matrix
+            C = np.zeros((2 * len(edges), 2 * len(basepositions)))
+            for row, e in enumerate(edges):
+                i1, i2 = e
+                # x-dimension constraint
+                C[2 * row][2 * i1] = 1
+                C[2 * row][2 * i2] = -1
+                # y-dimension constraint
+                C[(2 * row) + 1][(2 * i1) + 1] = 1
+                C[(2 * row) + 1][(2 * i2) + 1] = -1
+
+            # Spring + simulation parameters
+            stiff = 500  # 5000
+            h = 0.01  # 0.01
+            pinned = boundary_hole_verts
+
+            # SIMULATE
+            # Compute new velocities
+            # 1. Reshape old velocity + position vectors
+            v0 = velocities.reshape(-1, 1)
+            p = basepositions.reshape(-1, 1)
+            # 2. Compute update matrix
+            CTC = C.T @ C
+            M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+            # 3. Compute new velocities
+            v = v0 + (M @ (p + (h * v0)))
+            v = v.reshape(len(basepositions), 2)
+            # 4. Update velocities of only un-pinned vertices
+            for row, vel in enumerate(v):
+                if row not in pinned:
+                    velocities[row] = vel
+            # 5. Update basepositions based on velocities
+            basepositions += h * velocities
+
+            # 6. Update positions themselves
+            positions = np.array([basepos for basepos in basepositions])
+
+
+        else:
+            print('done')
 
 
 

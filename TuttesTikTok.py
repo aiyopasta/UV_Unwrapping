@@ -7,7 +7,7 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(linewidth=np.inf)
 
 # Save the animation? TODO: Make sure you're saving to correct destination!!
-save_anim = True
+save_anim = False
 
 # Pygame + gameloop setup
 width = 540
@@ -45,6 +45,10 @@ keys = [0,      # Keyframe 0. Dancing messy network
         11.,    # Keyframe 6. Pick the true boundary hole.
         13.,    # Keyframe 7. Tuttes for true boundary hole  TODO MAKE LONGER IN ACTUAL RENDER
         17.]
+
+# TODO (for now, to inspect the triangle embedding)
+for k in range(4, len(keys)):
+    keys[k] += 2.
 
 
 # Helper Functions
@@ -236,6 +240,9 @@ def main():
                 [498, 89, 307],
                 [67, 482, 207]]    # <--- That's the chosen triangle we're gonna roll with
 
+    # For frame 2 — Initial twirling radii
+    radii = np.array([3., 10.])
+
     # For frame 2 — Transparency channel for fading out triangle
     transparent_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
@@ -256,7 +263,7 @@ def main():
         for i, e in enumerate(edges):
             v1, v2 = positions[e[0]], positions[e[1]]
             u = i / len(edges)
-            pygame.draw.line(window, lerp(u, colors['blue'], colors['red']), A(v1), A(v2), width=1)
+            pygame.draw.line(window, lerp(u, colors['blue'], colors['red'] * 0.9), A(v1), A(v2), width=2)
 
         # Draw nodes
         for i, p in enumerate(positions):
@@ -274,11 +281,11 @@ def main():
                 # Set flags for which ones not to twirl TODO
                 if (i not in pickedlist1) and (i not in pickedlist2):
                     # Add global circular twirl
-                    radius = 3.
+                    radius = radii[0]
                     angle = ((count % 100) / 100. * 2.0 * np.pi)
                     positions[i] = basepositions[i] + (np.array([np.cos(angle), np.sin(angle)]) * radius)
                     # Add small circular twirls
-                    radius = 10.
+                    radius = radii[1]
                     angle -= (np.random.rand() * 2.0 * np.pi)
                     positions[i] += np.array([np.cos(angle), np.sin(angle)]) * radius
 
@@ -379,6 +386,10 @@ def main():
                     tri = candtris[tri_idx]
                     pygame.draw.lines(window, colors['white'] * sigma, True, A_many([positions[tri[0]], positions[tri[1]], positions[tri[2]]]), width=8)
 
+                    # LERP the twirl radii to 0, to bring the points back to their basepoints
+                    radii = lerp(tau, np.array([3., 10.]), np.array([0., 0.]))
+
+
                 # Expand out that triangle (may need to zoom out to fit everything, or squeeze everything else in haha)
                 if seg == 1:
                     tau = ease_inout(tau)
@@ -389,7 +400,7 @@ def main():
                     for i, vert in enumerate(tri):
                         angle = (np.pi * 2.0 * (i / 3.)) + angle_offset
                         destpos = np.array([np.cos(angle), np.sin(angle)]) * min(width, height) / 2
-                        destpos -= np.array([0., 0.])
+                        destpos += np.array([5., 0.])
                         positions[tri[i]] = lerp(tau, basepositions[tri[i]], destpos)
 
                     # LERP rest of the nodes to be a bit smaller (to fit inside triangle)
@@ -414,7 +425,7 @@ def main():
                 # np.savetxt("scratch.txt", basepositions, fmt='%f')
 
             # A little pause
-            u = slash(u, new_start=0.1)
+            u = slash(u, new_start=0.3)
             u = ease_inout(u)
 
             # Initialize 2|E| x 2|V| sized connections matrix
@@ -429,7 +440,7 @@ def main():
                 C[(2 * row) + 1][(2 * i2) + 1] = -1
 
             # Spring + simulation parameters
-            stiff = 500  # 5000
+            stiff = 800  # 5000
             h = 0.01  # 0.01
             pinned = [67, 482, 207]
 

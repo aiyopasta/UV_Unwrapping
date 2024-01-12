@@ -7,7 +7,7 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(linewidth=np.inf)
 
 # Save the animation? TODO: Make sure you're saving to correct destination!!
-save_anim = False
+save_anim = True
 
 # Pygame + gameloop setup
 width = 540
@@ -33,7 +33,7 @@ def A_many(vals):
 
 # Keyframe / timing params
 FPS = 60
-t = 6.5
+t = 0.0
 dt = 0.01    # i.e., 1 frame corresponds to +0.01 in parameter space = 0.01 * FPS = +0.6 per second (assuming 60 FPS)
 
 keys = [0,      # Keyframe 0. Dancing messy network
@@ -529,7 +529,7 @@ def main():
                 C[(2 * row) + 1][(2 * i2) + 1] = -1
 
             # Spring + simulation parameters
-            stiff = 500  # 5000
+            stiff = 2000  # 5000
             h = 0.01  # 0.01
             pinned = hole_verts
 
@@ -628,7 +628,7 @@ def main():
                 C[(2 * row) + 1][(2 * i2) + 1] = -1
 
             # Spring + simulation parameters
-            stiff = 500  # 5000
+            stiff = 4000  # 5000
             h = 0.01  # 0.01
             pinned = boundary_hole_verts
 

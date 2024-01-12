@@ -38,7 +38,7 @@ def lerp(u, initial, final):
 
 # Mesh Information (input)
 filename = 'THE_ACTUAL_FACE_TO_USE.obj'
-pinned = [67, 482, 207]
+pinned = [128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
 
 
 # # Mesh information (input)
@@ -62,8 +62,8 @@ pinned = [67, 482, 207]
 
 
 
-stiff = 500
-h = 0.01 #0.02
+stiff = 4000
+h = 0.02 #0.02
 # drag = 0.00009
 
 # Load OBJ file + fill adjacency list
@@ -98,20 +98,20 @@ with open(filename) as f:
 
 edges = list(edges)
 
-# # 2. Override positions with randomized values if unpinned, else circular values.
-# np.random.seed(42)
-# angle_offset = np.radians(-120.) - np.radians(30.)
-# for i in range(len(positions)):
-#     if i not in pinned:
-#         x_max, y_max = width * 0.9, height * 0.9
-#         positions[i] = np.random.rand(2) * [x_max, y_max] - [x_max / 2, y_max / 2]
-#         maxvel = 2
-#     else:
-#         angle = (np.pi * 2.0 * (pinned.index(i) / float(len(pinned)))) + angle_offset
-#         positions[i] = np.array([np.cos(angle), np.sin(angle)]) * min(width, height) / 2 * 0.9
+# 2. Override positions with randomized values if unpinned, else circular values.
+np.random.seed(42)
+angle_offset = np.radians(-120.) - np.radians(30.)
+for i in range(len(positions)):
+    if i not in pinned:
+        x_max, y_max = width * 0.9, height * 0.9
+        positions[i] = np.random.rand(2) * [x_max, y_max] - [x_max / 2, y_max / 2]
+        maxvel = 2
+    else:
+        angle = (np.pi * 2.0 * (pinned.index(i) / float(len(pinned)))) + angle_offset
+        positions[i] = np.array([np.cos(angle), np.sin(angle)]) * min(width, height) / 2 * 0.9
 
-# 2. TODO (for now) Override positions copied over from other file
-positions = np.loadtxt('scratch.txt')
+# # 2. TODO (for now) Override positions copied over from other file
+# positions = np.loadtxt('scratch.txt')
 
 # 3. Initialize velocities to be 0 and make positions into np array.
 positions = np.array(positions)
@@ -145,10 +145,18 @@ colors = {
 def handle_keys(keys_pressed):
     global positions
 
+    # For zooming in / out
     if keys_pressed[pygame.K_p]:
         positions *= 1.5
     elif keys_pressed[pygame.K_o]:
         positions /= 1.5
+
+    # For saving UV map
+    elif keys_pressed[pygame.K_s]:
+        with open("face_uv.obj", 'w') as file:
+            for p in positions:
+                # Write each vertex with x, y from the list and z as 0
+                file.write(f'v {p[0]} {p[1]} 0\n')
 
 
 def main():

@@ -7,7 +7,7 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(linewidth=np.inf)
 
 # Save the animation? TODO: Make sure you're saving to correct destination!!
-save_anim = False
+save_anim = True
 
 # Pygame + gameloop setup
 width = 540
@@ -37,18 +37,20 @@ t = 0.0
 dt = 0.01    # i.e., 1 frame corresponds to +0.01 in parameter space = 0.01 * FPS = +0.6 per second (assuming 60 FPS)
 
 keys = [0,      # Keyframe 0. Dancing messy network
-        1.,     # Keyframe 1. Picking it apart.
-        4.,     # Keyframe 2. Pick a triangle.
-        7.,     # Keyframe 3. Tuttes for triangle boundary. TODO: MAKE LONGER IN ACTUAL RENDER
-        8.,     # Keyframe 4. Pick the mouth hole.
-        10.,    # Keyframe 5. Tuttes for mouth hole boundary  TODO MAKE LONGER IN ACTUAL RENDER
-        11.,    # Keyframe 6. Pick the true boundary hole.
-        13.,    # Keyframe 7. Tuttes for true boundary hole  TODO MAKE LONGER IN ACTUAL RENDER
-        17.]
+        3.,     # Keyframe 1. Picking it apart.
+        6.,     # Keyframe 2. Pick a triangle.
+        10.,     # Keyframe 3. Tuttes for triangle boundary. TODO: MAKE LONGER IN ACTUAL RENDER
+        11.,     # Keyframe 4. Pick the mouth hole.
+        13.,    # Keyframe 5. Tuttes for mouth hole boundary  TODO MAKE LONGER IN ACTUAL RENDER
+        14.,    # Keyframe 6. Pick the true boundary hole.
+        16.,    # Keyframe 7. Tuttes for true boundary hole  TODO MAKE LONGER IN ACTUAL RENDER
+        20.]
 
 # TODO (for now, to inspect the triangle embedding)
 for k in range(4, len(keys)):
-    keys[k] += 2.
+    keys[k] += 7.
+for k in range(6, len(keys)):
+    keys[k] += 3.
 
 
 # Helper Functions
@@ -246,6 +248,9 @@ def main():
     # For frame 2 — Transparency channel for fading out triangle
     transparent_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
+    # For frame 2 — For changing thickness of lines.
+    thickness = 1
+
     # For frame 4 — Indices for the mouth hole
     hole_verts = [629, 641, 630, 645, 633, 644, 654, 655, 653, 637, 647, 639, 649, 640, 651, 634, 650, 635, 652, 638, 648, 636, 646, 632, 643, 631, 642] #[112, 367, 125, 376, 119, 364, 123, 365, 114, 369, 122, 363, 117, 375, 126, 370]
 
@@ -263,7 +268,10 @@ def main():
         for i, e in enumerate(edges):
             v1, v2 = positions[e[0]], positions[e[1]]
             u = i / len(edges)
-            pygame.draw.line(window, lerp(u, colors['blue'], colors['red'] * 0.9), A(v1), A(v2), width=2)
+            if (e[0] in hole_verts) and (e[1] in hole_verts):
+                pygame.draw.line(window, colors['orange'], A(v1), A(v2), width=4)
+            else:
+                pygame.draw.line(window, lerp(u, colors['blue'], colors['red']), A(v1), A(v2), width=thickness)
 
         # Draw nodes
         for i, p in enumerate(positions):
@@ -375,7 +383,7 @@ def main():
             # Keyframe 2 Stuff
             if frame == 2:
                 tau, seg = squash(u, [0.0,  # Seg 0: Flip through many candidate triangles, ending up on one
-                                      0.5,  # Seg 1: Expand out that triangle (may need to zoom out to fit everything)
+                                      0.7,  # Seg 1: Expand out that triangle (may need to zoom out to fit everything)
                                       1.0])
 
                 # Flip through many candidate triangles, ending up on one
@@ -421,8 +429,9 @@ def main():
             # used for zooming in / out. Also let's make those basepositions into np array.
             if firstframe:
                 basepositions = np.array(copy.copy(positions))
-                # print('saved base positions')
-                # np.savetxt("scratch.txt", basepositions, fmt='%f')
+
+                # Sneakily increase thickness of lines
+                thickness += 1
 
             # A little pause
             u = slash(u, new_start=0.3)
@@ -684,6 +693,7 @@ def main():
         if save_anim:
             pygame.image.save(window, path_to_save+'/frame'+str(count)+'.png')
             print('Saved frame '+str(count))
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -691,7 +701,6 @@ def main():
 
 
     # Post game-loop stuff
-    # Do more stuff...
     # Use ffmpeg to combine the PNG images into a video
     if save_anim:
         input_files = path_to_save + '/frame%d.png'
@@ -699,6 +708,14 @@ def main():
         ffmpeg_path = "/opt/homebrew/bin/ffmpeg"
         os.system(f'{ffmpeg_path} -r 60 -i {input_files} -vcodec libx264 -crf 25 -pix_fmt yuv420p -vf "eq=brightness=0.00:saturation=1.3" {output_file} > /dev/null 2>&1')
         print('Saved video to ' + output_file)
+
+        # Save the final positions into new obj file, to import into Blender
+        with open("face_uv.obj", 'w') as file:
+            for p in positions:
+                # Write each vertex with x, y from the list and z as 0
+                file.write(f'v {p[0]} {p[1]} 0\n')
+
+        print('Saved final positions to face_uv.obj')
 
 
 if __name__ == "__main__":

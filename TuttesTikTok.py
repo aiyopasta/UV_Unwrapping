@@ -115,7 +115,7 @@ def ease_inout_inverse(t_):
 
 
 # Mesh information (input)
-filename = 'THE_ACTUAL_FACE_TO_USE.obj'  # use "THE ACTUAL FACE TO USE"
+filename = 'meshes/THE_ACTUAL_FACE_TO_USE.obj'  # use "THE ACTUAL FACE TO USE"
 
 # FOR "THE ACTUAL FACE TO USE"
 # RIGHT EYE [112, 367, 125, 376, 119, 364, 123, 365, 114, 369, 122, 363, 117, 375, 126, 370]

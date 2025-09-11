@@ -1,5 +1,6 @@
-import copy
+# This code resulted in an Instagram reel that got 3.5 MILLION views!! Congrats!!
 
+import copy
 import numpy as np
 import pygame
 import os
@@ -7,7 +8,7 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(linewidth=np.inf)
 
 # Save the animation? TODO: Make sure you're saving to correct destination!!
-save_anim = True
+save_anim = False
 
 # Pygame + gameloop setup
 width = 540
@@ -204,7 +205,7 @@ def main():
     run = True
 
     # Animation saving setup
-    path_to_save = '/Users/adityaabhyankar/Desktop/Programming/UV_Unwrapping/output'
+    path_to_save = '/Users/adityaabhyankar/Desktop/Programming/LaplaceMania/for_animation/output'
     if save_anim:
         for filename in os.listdir(path_to_save):
             # Check if the file name follows the required format
@@ -257,9 +258,22 @@ def main():
     # For frame 5 — Indices for the true boundary hole
     boundary_hole_verts = [128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
 
+    # Initialize 2|E| x 2|V| sized connections matrix, and blank solver matrix M
+    C = np.zeros((2 * len(edges), 2 * len(basepositions)))
+    for row, e in enumerate(edges):
+        i1, i2 = e
+        # x-dimension constraint
+        C[2 * row][2 * i1] = 1
+        C[2 * row][2 * i2] = -1
+        # y-dimension constraint
+        C[(2 * row) + 1][(2 * i1) + 1] = 1
+        C[(2 * row) + 1][(2 * i2) + 1] = -1
+    M = None
+
     # Game loop
     count = 0
     frame = -1
+
     while run:
         # Reset stuff
         window.fill((0, 0, 0))
@@ -437,21 +451,14 @@ def main():
             u = slash(u, new_start=0.3)
             u = ease_inout(u)
 
-            # Initialize 2|E| x 2|V| sized connections matrix
-            C = np.zeros((2 * len(edges), 2 * len(basepositions)))
-            for row, e in enumerate(edges):
-                i1, i2 = e
-                # x-dimension constraint
-                C[2 * row][2 * i1] = 1
-                C[2 * row][2 * i2] = -1
-                # y-dimension constraint
-                C[(2 * row) + 1][(2 * i1) + 1] = 1
-                C[(2 * row) + 1][(2 * i2) + 1] = -1
-
             # Spring + simulation parameters
             stiff = 800  # 5000
             h = 0.01  # 0.01
             pinned = [67, 482, 207]
+
+            if firstframe:
+                CTC = C.T @ C
+                M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
 
             # SIMULATE
             # Compute new velocities
@@ -459,8 +466,8 @@ def main():
             v0 = velocities.reshape(-1, 1)
             p = basepositions.reshape(-1, 1)
             # 2. Compute update matrix
-            CTC = C.T @ C
-            M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+            # CTC = C.T @ C
+            # M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
             # 3. Compute new velocities
             v = v0 + (M @ (p + (h * v0)))
             v = v.reshape(len(basepositions), 2)
@@ -537,21 +544,14 @@ def main():
             u = slash(u, new_start=0.1)
             u = ease_inout(u)
 
-            # Initialize 2|E| x 2|V| sized connections matrix
-            C = np.zeros((2 * len(edges), 2 * len(basepositions)))
-            for row, e in enumerate(edges):
-                i1, i2 = e
-                # x-dimension constraint
-                C[2 * row][2 * i1] = 1
-                C[2 * row][2 * i2] = -1
-                # y-dimension constraint
-                C[(2 * row) + 1][(2 * i1) + 1] = 1
-                C[(2 * row) + 1][(2 * i2) + 1] = -1
-
             # Spring + simulation parameters
             stiff = 2000  # 5000
             h = 0.01  # 0.01
             pinned = hole_verts
+
+            if firstframe:
+                CTC = C.T @ C
+                M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
 
             # SIMULATE
             # Compute new velocities
@@ -559,8 +559,8 @@ def main():
             v0 = velocities.reshape(-1, 1)
             p = basepositions.reshape(-1, 1)
             # 2. Compute update matrix
-            CTC = C.T @ C
-            M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+            # CTC = C.T @ C
+            # M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
             # 3. Compute new velocities
             v = v0 + (M @ (p + (h * v0)))
             v = v.reshape(len(basepositions), 2)
@@ -636,21 +636,14 @@ def main():
             u = slash(u, new_start=0.1)
             u = ease_inout(u)
 
-            # Initialize 2|E| x 2|V| sized connections matrix
-            C = np.zeros((2 * len(edges), 2 * len(basepositions)))
-            for row, e in enumerate(edges):
-                i1, i2 = e
-                # x-dimension constraint
-                C[2 * row][2 * i1] = 1
-                C[2 * row][2 * i2] = -1
-                # y-dimension constraint
-                C[(2 * row) + 1][(2 * i1) + 1] = 1
-                C[(2 * row) + 1][(2 * i2) + 1] = -1
-
             # Spring + simulation parameters
             stiff = 4000  # 5000
             h = 0.01  # 0.01
             pinned = boundary_hole_verts
+
+            if firstframe:
+                CTC = C.T @ C
+                M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
 
             # SIMULATE
             # Compute new velocities
@@ -658,8 +651,8 @@ def main():
             v0 = velocities.reshape(-1, 1)
             p = basepositions.reshape(-1, 1)
             # 2. Compute update matrix
-            CTC = C.T @ C
-            M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+            # CTC = C.T @ C
+            # M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
             # 3. Compute new velocities
             v = v0 + (M @ (p + (h * v0)))
             v = v.reshape(len(basepositions), 2)

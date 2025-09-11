@@ -37,16 +37,17 @@ def lerp(u, initial, final):
 
 
 # Mesh Information (input)
-filename = 'cut_dolphin.obj'
-pinned = [52, 82, 83, 81]
+# filename = 'cut_dolphin.obj'
+# pinned = [52, 82, 83, 81]
 
 # This is for "THE ACTUAL FACE TO USE".obj, it's the true boundary.
 #[128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
 
 
-# # Mesh information (input)
-# filename = 'lowpolyface7.obj'  # use face 7
-# pinned = [67, 482, 207]  #[128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
+# Mesh information (input)
+filename = 'SUBDIVIDED_FACE.obj'  # use face 7
+# pinned = [128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
+pinned = [128, 791, 418, 2339, 142, 2338, 417, 2539, 143, 2537, 412, 1964, 149, 1962, 409, 2334, 134, 2341, 425, 1969, 133, 2118, 422, 989, 137, 1125, 407, 1489, 147, 1567, 414, 1371, 146, 1369, 410, 985, 145, 987, 415, 789, 144, 787, 408, 1961, 141, 1966, 419, 1768, 140, 1767, 416, 790, 136, 794, 423, 2454, 135, 2455, 424, 1769, 132, 1771, 426, 1619, 131, 1569, 421, 1374, 138, 1273, 420, 1568, 139, 1566, 413, 1765, 148, 1764, 411, 1370, 130, 1260, 598, 1474, 427, 990, 129, 1142, 428, 795]
 #
 # # FOR FACE 7
 # # Random loop [21, 151, 48, 237, 64, 270, 101, 262, 104, 258, 478, 177, 464, 228, 472, 252, 608, 657, 638, 648, 636, 646, 632, 643, 631, 675, 615, 41, 163, 42, 205]
@@ -65,8 +66,8 @@ pinned = [52, 82, 83, 81]
 
 
 
-stiff = 200
-h = 0.005 #0.02
+stiff = 2000
+h = 0.01
 # drag = 0.00009
 
 # Load OBJ file + fill adjacency list
@@ -74,7 +75,7 @@ h = 0.005 #0.02
 positions = []
 faces = []
 edges = set()
-delimiter = '//'
+delimiter = '/'
 with open(filename) as f:
     for line in f:
         kind = line[0]
@@ -182,6 +183,8 @@ def main():
 
     # Game loop
     count = 0
+    CTC = C.T @ C
+    M = -h * stiff * np.linalg.inv(np.eye(2 * len(positions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
     while run:
         # Reset stuff
         window.fill((0, 0, 0))
@@ -190,8 +193,8 @@ def main():
         v0 = velocities.reshape(-1, 1)
         p = positions.reshape(-1, 1)
         # 2. Compute update matrix
-        CTC = C.T @ C
-        M = -h * stiff * np.linalg.inv(np.eye(2 * len(positions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+        # CTC = C.T @ C
+        # M = -h * stiff * np.linalg.inv(np.eye(2 * len(positions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
         # 3. Compute new velocities
         v = v0 + (M @ (p + (h * v0)))
         v = v.reshape(len(positions), 2)
@@ -246,6 +249,9 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
 
 
 

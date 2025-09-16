@@ -4,6 +4,7 @@ import copy
 import numpy as np
 import pygame
 import os
+import scipy as sp
 np.set_printoptions(suppress=True)
 np.set_printoptions(linewidth=np.inf)
 
@@ -35,7 +36,7 @@ def A_many(vals):
 # Keyframe / timing params
 FPS = 60
 t = 0.0
-dt = 0.01    # i.e., 1 frame corresponds to +0.01 in parameter space = 0.01 * FPS = +0.6 per second (assuming 60 FPS)
+dt = 0.008    # i.e., 1 frame corresponds to +0.01 in parameter space = 0.01 * FPS = +0.6 per second (assuming 60 FPS)
 
 keys = [0,      # Keyframe 0. Dancing messy network
         3.,     # Keyframe 1. Picking it apart.
@@ -115,7 +116,7 @@ def ease_inout_inverse(t_):
 
 
 # Mesh information (input)
-filename = 'meshes/THE_ACTUAL_FACE_TO_USE.obj'  # use "THE ACTUAL FACE TO USE"
+filename = 'meshes/SUBDIVIDED_FACE_10K.obj'  # use "THE ACTUAL FACE TO USE"
 
 # FOR "THE ACTUAL FACE TO USE"
 # RIGHT EYE [112, 367, 125, 376, 119, 364, 123, 365, 114, 369, 122, 363, 117, 375, 126, 370]
@@ -197,6 +198,21 @@ def handle_keys(keys_pressed):
         positions = [pos / 1.5 for pos in positions]
 
 
+# Precompute drawing things that don't change (TODO: Ideally, I'd use something like Pyglet for fast draw)
+# (a) Edge coloring
+edge_cols = [lerp(i / len(edges), colors['blue'], colors['red']) for i in range(len(edges))]
+
+# (b) Quicker dot drawing ("draw()" is slow, so we draw it to a single surface, and blit that surface elsewhere,
+#     which is faster apparently, because blitting is implemented in C. It's kinda like instanced rendering ig.)
+def make_dot(color, radius=2):
+    surf = pygame.Surface((2 * radius + 1, 2 * radius + 1), pygame.SRCALPHA)  # a tinyass surface for this dot
+    pygame.draw.circle(surf, color, (radius, radius), radius)
+    return surf
+
+# Actually compute and stuff the two surfaces (white and red) for each of the two possible dots
+dot_white = make_dot(colors['white'])
+dot_red   = make_dot(colors['red'])
+
 def main():
     global t, dt, keys, FPS, save_anim, colors, edges, positions, velocities
 
@@ -258,17 +274,25 @@ def main():
     # For frame 5 — Indices for the true boundary hole
     boundary_hole_verts = [128, 418, 142, 417, 143, 412, 149, 409, 134, 425, 133, 422, 137, 407, 147, 414, 146, 410, 145, 415, 144, 408, 141, 419, 140, 416, 136, 423, 135, 424, 132, 426, 131, 421, 138, 420, 139, 413, 148, 411, 130, 598, 427, 129, 428]
 
-    # Initialize 2|E| x 2|V| sized connections matrix, and blank solver matrix M
-    C = np.zeros((2 * len(edges), 2 * len(basepositions)))
-    for row, e in enumerate(edges):
-        i1, i2 = e
+    # 4. Initialize 2|E| x 2|V| sized connections matrix, as a sparse coo matrix
+    # (a) First, gather the sparse data. For each entry in the matrix, we store indices (row, col, data).
+    rows, cols, data = [], [], []
+    for row, (i1, i2) in enumerate(edges):
         # x-dimension constraint
-        C[2 * row][2 * i1] = 1
-        C[2 * row][2 * i2] = -1
+        rows += [2 * row, 2 * row]
+        cols += [2 * i1, 2 * i2]
+        data += [1, -1]
+
         # y-dimension constraint
-        C[(2 * row) + 1][(2 * i1) + 1] = 1
-        C[(2 * row) + 1][(2 * i2) + 1] = -1
-    M = None
+        rows += [(2 * row) + 1, (2 * row) + 1]
+        cols += [(2 * i1) + 1, (2 * i2) + 1]
+        data += [1, -1]
+    # (b) Create the coo matrix, and convert it to csr
+    C = sp.sparse.coo_matrix((data, (rows, cols)), shape=(2 * len(edges), 2 * len(positions))).tocsr()
+
+    # 5. Compute the sparse inverse matrix operator A^{-1} = (I + alpha * CTC)^-1 in csc format (good for factorization)
+    CTC = C.T @ C
+    D = None
 
     # Game loop
     count = 0
@@ -278,18 +302,30 @@ def main():
         # Reset stuff
         window.fill((0, 0, 0))
 
-        # Draw edges
-        for i, e in enumerate(edges):
-            v1, v2 = positions[e[0]], positions[e[1]]
-            u = i / len(edges)
-            if (e[0] in hole_verts) and (e[1] in hole_verts):
-                pygame.draw.line(window, colors['orange'], A(v1), A(v2), width=4)
-            else:
-                pygame.draw.line(window, lerp(u, colors['blue'], colors['red']), A(v1), A(v2), width=thickness)
+        # # Draw edges
+        # for i, e in enumerate(edges):
+        #     v1, v2 = positions[e[0]], positions[e[1]]
+        #     u = i / len(edges)
+        #     if (e[0] in hole_verts) and (e[1] in hole_verts):
+        #         pygame.draw.line(window, colors['orange'], A(v1), A(v2), width=4)
+        #     else:
+        #         pygame.draw.line(window, lerp(u, colors['blue'], colors['red']), A(v1), A(v2), width=thickness)
+        #
+        # # Draw nodes
+        # for i, p in enumerate(positions):
+        #     pygame.draw.circle(window, colors['white'], A(p), 2, width=0)
 
-        # Draw nodes
-        for i, p in enumerate(positions):
-            pygame.draw.circle(window, colors['white'], A(p), 2, width=0)
+        # Fast(er) Drawing ————
+        # Draw edges
+        P = A_many(positions)  # makes it much faster!!
+        line = pygame.draw.line  # wow predefining this is actually slightly faster.
+        for i, (i1, i2) in enumerate(edges):
+            line(window, edge_cols[i], P[i1], P[i2], width=1)
+
+        # Draw dots
+        blit = window.blit  # wow predefining this is actually slightly faster.
+        for i, pt in enumerate(P):
+            blit(dot_white, dot_white.get_rect(center=(int(pt[0]), int(pt[1]))))
 
         # Animation!
         prevframe = frame
@@ -457,8 +493,12 @@ def main():
             pinned = [67, 482, 207]
 
             if firstframe:
-                CTC = C.T @ C
-                M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+                D = sp.sparse.identity(CTC.shape[0], format='csc') + (h * h * stiff) * CTC
+                D_inv_op = sp.sparse.linalg.factorized(D)  # note: this is an OPERATOR, not an explicit matrix!
+
+                # 6. Compute sparse solver matrix as a linear operator (also not an explicit matrix)
+                M = sp.sparse.linalg.LinearOperator((2 * len(positions), 2 * len(positions)),
+                                                    matvec=lambda x: -h * stiff * D_inv_op(CTC @ x))
 
             # SIMULATE
             # Compute new velocities
@@ -550,8 +590,12 @@ def main():
             pinned = hole_verts
 
             if firstframe:
-                CTC = C.T @ C
-                M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+                D = sp.sparse.identity(CTC.shape[0], format='csc') + (h * h * stiff) * CTC
+                D_inv_op = sp.sparse.linalg.factorized(D)  # note: this is an OPERATOR, not an explicit matrix!
+
+                # 6. Compute sparse solver matrix as a linear operator (also not an explicit matrix)
+                M = sp.sparse.linalg.LinearOperator((2 * len(positions), 2 * len(positions)),
+                                                    matvec=lambda x: -h * stiff * D_inv_op(CTC @ x))
 
             # SIMULATE
             # Compute new velocities
@@ -642,8 +686,12 @@ def main():
             pinned = boundary_hole_verts
 
             if firstframe:
-                CTC = C.T @ C
-                M = -h * stiff * np.linalg.inv(np.eye(2 * len(basepositions)) + (np.power(h, 2.) * stiff * CTC)) @ CTC
+                D = sp.sparse.identity(CTC.shape[0], format='csc') + (h * h * stiff) * CTC
+                D_inv_op = sp.sparse.linalg.factorized(D)  # note: this is an OPERATOR, not an explicit matrix!
+
+                # 6. Compute sparse solver matrix as a linear operator (also not an explicit matrix)
+                M = sp.sparse.linalg.LinearOperator((2 * len(positions), 2 * len(positions)),
+                                                    matvec=lambda x: -h * stiff * D_inv_op(CTC @ x))
 
             # SIMULATE
             # Compute new velocities
